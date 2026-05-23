@@ -1,22 +1,28 @@
 #include "global_hotkey_manager.h"
+
 #include "companion_state.h"
 
 #include <QHotkey>
 #include <QKeySequence>
 
+namespace {
+// System-wide shortcuts. Kept in this single translation unit so changing them
+// requires touching exactly one place.
+constexpr auto PUSH_TO_TALK_TOGGLE_SHORTCUT = "Ctrl+Alt+Space";
+constexpr auto DOCK_TOGGLE_SHORTCUT = "Ctrl+Alt+D";
+}  // namespace
+
 GlobalHotkeyManager::GlobalHotkeyManager(CompanionState* companionState, QObject* parent)
     : QObject(parent), companionStateValue(companionState) {
 
-    // Push-to-talk toggle (no AI yet — just flips Listening on/off for UX testing).
     pushToTalkToggleHotkey = new QHotkey(
-        QKeySequence(QStringLiteral("Ctrl+Alt+Space")), true, this);
+        QKeySequence(QLatin1String(PUSH_TO_TALK_TOGGLE_SHORTCUT)), true, this);
     connect(pushToTalkToggleHotkey, &QHotkey::activated, this, [this]() {
         companionStateValue->togglePushToTalkListening();
     });
 
-    // Dock toggle — flies agent to top-right corner or back to cursor.
     dockToggleHotkey = new QHotkey(
-        QKeySequence(QStringLiteral("Ctrl+Alt+D")), true, this);
+        QKeySequence(QLatin1String(DOCK_TOGGLE_SHORTCUT)), true, this);
     connect(dockToggleHotkey, &QHotkey::activated, this, [this]() {
         companionStateValue->toggleOverlayMode();
     });
