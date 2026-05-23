@@ -5,6 +5,9 @@
 
 class CompanionState;
 
+// Periodically samples the global cursor position via QCursor::pos() and
+// pushes it into CompanionState. The QML overlay binds to the resulting
+// cursorScreenPosition property to render the agent dot near the cursor.
 class CursorPositionTracker : public QObject {
     Q_OBJECT
 public:

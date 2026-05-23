@@ -14,7 +14,8 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
 )
 
-# QHotkey vendored under third_party/QHotkey — clone/copy there.
+# QHotkey lives in-tree under third_party/QHotkey. See README "Dependencies"
+# for how to refresh it on a fresh clone.
 add_subdirectory(third_party/QHotkey)
 
 set(CLICKY_SOURCES
@@ -23,12 +24,14 @@ set(CLICKY_SOURCES
     src/companion_state.h
     src/cursor_position_tracker.cpp
     src/cursor_position_tracker.h
-    src/overlay_window.cpp
-    src/overlay_window.h
-    src/tray_icon_manager.cpp
-    src/tray_icon_manager.h
     src/global_hotkey_manager.cpp
     src/global_hotkey_manager.h
+    src/overlay_window.cpp
+    src/overlay_window.h
+    src/task_item.cpp
+    src/task_item.h
+    src/tray_icon_manager.cpp
+    src/tray_icon_manager.h
 )
 
 qt_add_executable(clicky ${CLICKY_SOURCES})
@@ -37,8 +40,11 @@ qt_add_qml_module(clicky
     URI Clicky
     VERSION 1.0
     QML_FILES
-        qml/OverlayContent.qml
         qml/AgentDot.qml
+        qml/OverlayContent.qml
+    DEPENDENCIES
+        QtQuick
+        QtQuick.Effects
 )
 
 target_link_libraries(clicky PRIVATE
