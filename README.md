@@ -29,11 +29,17 @@ The application is a single Qt6 process:
 - Qt6 (Core, Gui, Qml, Quick, Widgets, QtQuick.Effects)
 - A C++17 compiler
 - CMake ≥ 3.21
-- [QHotkey](https://github.com/Skycoder42/QHotkey) — vendored under
-  `third_party/QHotkey/`. On a fresh clone:
+- [QHotkey](https://github.com/Skycoder42/QHotkey) — a git submodule under
+  `third_party/QHotkey/`. Clone recursively:
 
   ```bash
-  git clone --depth 1 https://github.com/Skycoder42/QHotkey third_party/QHotkey
+  git clone --recurse-submodules https://github.com/TGS963/clicky-qt
+  ```
+
+  Already cloned without it? Fetch the submodule:
+
+  ```bash
+  git submodule update --init
   ```
 
 ## Build
