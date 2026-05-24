@@ -19,7 +19,7 @@ class TaskItem : public QObject {
     Q_PROPERTY(QColor color READ color CONSTANT)
     Q_PROPERTY(QString title READ title CONSTANT)
     Q_PROPERTY(QString description READ description NOTIFY descriptionChanged)
-    Q_PROPERTY(qreal elapsedSeconds READ elapsedSeconds NOTIFY tickedAhead)
+    Q_PROPERTY(qreal elapsedSeconds READ elapsedSeconds NOTIFY elapsedSecondsChanged)
     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
     Q_PROPERTY(qreal progressFraction READ progressFraction NOTIFY progressFractionChanged)
     Q_PROPERTY(QString stdoutTail READ stdoutTail NOTIFY stdoutTailChanged)
@@ -67,7 +67,7 @@ public:
     void requestKill();
 
 signals:
-    void tickedAhead();
+    void elapsedSecondsChanged();
     void statusChanged();
     void progressFractionChanged();
     void descriptionChanged();

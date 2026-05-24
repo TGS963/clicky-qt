@@ -3,7 +3,7 @@ import Clicky
 
 // Header + separator + scrollable list of active tasks. Chrome-less:
 // the surrounding background, border, shadow, and rounded corners are owned
-// by the parent (MorphContainer in OverlayContent.qml). This item exposes an
+// by the parent (MorphingCompanion.qml). This item exposes an
 // `implicitContentHeight` that the parent reads to size its morph target.
 Item {
     id: taskListContentRoot
@@ -96,7 +96,7 @@ Item {
 
                     readonly property bool rowIsHovered:
                         rowHoverArea.containsMouse || closeButtonHoverArea.containsMouse
-                    readonly property real lifetimeProgress: task.progressFraction
+                    readonly property real workProgressFraction: task.progressFraction
 
                     // Rows fade out when the task hits a terminal status,
                     // mirroring the satellite fade. CompanionState removes
@@ -229,7 +229,7 @@ Item {
                             anchors.left: parent.left
                             anchors.top: parent.top
                             anchors.bottom: parent.bottom
-                            width: parent.width * rowRoot.lifetimeProgress
+                            width: parent.width * rowRoot.workProgressFraction
                             radius: 1
                             color: rowRoot.task.color
                             opacity: 0.65
