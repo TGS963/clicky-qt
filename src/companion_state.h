@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QPointF>
 #include <QTimer>
+#include <QVariantList>
 
 class TaskItem;
 
@@ -38,6 +39,15 @@ class CompanionState : public QObject {
     // --- Primary-dot color flash (synced with task lifecycle) ---
     Q_PROPERTY(QColor primaryFlashColor READ primaryFlashColor NOTIFY primaryFlashColorChanged)
     Q_PROPERTY(bool primaryFlashActive READ primaryFlashActive NOTIFY primaryFlashActiveChanged)
+
+    // --- Listening waveform bar amplitudes ---
+    // QVariantList of `listeningBarCount` qreals in [0, 1]. Updated at ~30 Hz
+    // while voiceState == Listening, frozen otherwise. Drives the
+    // MorphingWaveform bars. Currently fed by a smoothed RNG stub; swap to
+    // QAudioSource later without touching QML.
+    Q_PROPERTY(QVariantList listeningAmplitudes READ listeningAmplitudes
+               NOTIFY listeningAmplitudesChanged)
+    Q_PROPERTY(int listeningBarCount READ listeningBarCount CONSTANT)
 
 public:
     enum VoiceState {
@@ -73,6 +83,9 @@ public:
     QColor primaryFlashColor() const { return primaryFlashColorValue; }
     bool primaryFlashActive() const { return primaryFlashActiveValue; }
 
+    QVariantList listeningAmplitudes() const { return listeningAmplitudesValue; }
+    int listeningBarCount() const;
+
     TaskListModel* activeTasksModel() const { return activeTasksModelInstance; }
 
 public slots:
@@ -103,6 +116,7 @@ signals:
     void taskMenuAnchorPositionChanged();
     void primaryFlashColorChanged();
     void primaryFlashActiveChanged();
+    void listeningAmplitudesChanged();
 
 private:
     // --- State ---
@@ -122,6 +136,12 @@ private:
     bool primaryFlashActiveValue = false;
     QTimer primaryFlashReleaseTimer;
     QColor pendingTaskColorValue;
+
+    // --- Listening waveform amplitudes ---
+    QVariantList listeningAmplitudesValue;
+    QTimer listeningAmplitudeTimer;
+    void tickListeningAmplitudes();
+    void resetListeningAmplitudes();
 
     // --- Internal helpers ---
     void setInteractionMode(InteractionMode newInteractionMode);
