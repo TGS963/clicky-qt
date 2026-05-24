@@ -43,7 +43,11 @@ TrayIconManager::TrayIconManager(CompanionState* companionState, QObject* parent
     trayIcon = new QSystemTrayIcon(makeBlueDotIcon(), this);
     trayIcon->setToolTip(QStringLiteral("Clicky"));
 
-    auto* trayContextMenu = new QMenu();
+    // QSystemTrayIcon::setContextMenu does NOT take ownership of the menu;
+    // hold it as a member (QMenu is a QWidget, can't reparent to a plain
+    // QObject) so its lifetime tracks this manager and it doesn't leak.
+    contextMenu.reset(new QMenu());
+    QMenu* trayContextMenu = contextMenu.get();
     QAction* toggleDockAction = trayContextMenu->addAction(QStringLiteral("Toggle dock"));
     QAction* togglePushToTalkAction =
         trayContextMenu->addAction(QStringLiteral("Toggle listening"));

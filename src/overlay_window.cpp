@@ -45,26 +45,32 @@ OverlayWindow::OverlayWindow(CompanionState* companionState, QQuickView* parent)
 
     keepAboveTimer.setInterval(WINDOW_RESTACK_INTERVAL_MS);
     connect(&keepAboveTimer, &QTimer::timeout, this, &OverlayWindow::raiseAboveOtherWindows);
+
+    // Toggle click-through whenever focus-mode interaction changes.
+    connect(companionStateValue, &CompanionState::interactionModeChanged,
+            this, &OverlayWindow::applyInteractionModeFlags);
 }
 
 void OverlayWindow::showFullScreenOnPrimaryDisplay() {
     if (const QScreen* primaryScreen = QGuiApplication::primaryScreen()) {
         setGeometry(primaryScreen->geometry());
     }
-    applyClickThroughAndAlwaysAboveAttributes();
+    applyInteractionModeFlags();
     show();
     keepAboveTimer.start();
+}
+
+void OverlayWindow::applyInteractionModeFlags() {
+    // Only the click-through flag changes per interaction mode. Re-setting
+    // WindowStaysOnTopHint after show() causes X11 to re-map the window,
+    // producing a visible flicker — leave it set once in the constructor.
+    const bool wantClickThrough =
+        companionStateValue->interactionMode() == CompanionState::Passive;
+    setFlag(Qt::WindowTransparentForInput, wantClickThrough);
 }
 
 void OverlayWindow::raiseAboveOtherWindows() {
     if (isVisible()) {
         raise();
     }
-}
-
-void OverlayWindow::applyClickThroughAndAlwaysAboveAttributes() {
-    // Re-asserted post-construction in case a downstream caller toggled flags;
-    // Qt::WindowTransparentForInput is the cross-platform click-through flag.
-    setFlag(Qt::WindowTransparentForInput, true);
-    setFlag(Qt::WindowStaysOnTopHint, true);
 }

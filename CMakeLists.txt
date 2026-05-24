@@ -14,6 +14,14 @@ find_package(Qt6 REQUIRED COMPONENTS
     Widgets
 )
 
+# ModifierKeyMonitor uses Xlib (XQueryKeymap) to distinguish Right Ctrl
+# from Left Ctrl, which Qt's modifier mask collapses together. This is the
+# only X11 dependency in the tree — the app is X11-only by design today.
+if(NOT (UNIX AND NOT APPLE))
+    message(FATAL_ERROR "clicky currently only builds on Linux/X11.")
+endif()
+find_package(X11 REQUIRED)
+
 # QHotkey lives in-tree under third_party/QHotkey. See README "Dependencies"
 # for how to refresh it on a fresh clone.
 add_subdirectory(third_party/QHotkey)
@@ -26,10 +34,14 @@ set(CLICKY_SOURCES
     src/cursor_position_tracker.h
     src/global_hotkey_manager.cpp
     src/global_hotkey_manager.h
+    src/modifier_key_monitor.cpp
+    src/modifier_key_monitor.h
     src/overlay_window.cpp
     src/overlay_window.h
     src/task_item.cpp
     src/task_item.h
+    src/task_list_model.cpp
+    src/task_list_model.h
     src/tray_icon_manager.cpp
     src/tray_icon_manager.h
 )
@@ -41,7 +53,9 @@ qt_add_qml_module(clicky
     VERSION 1.0
     QML_FILES
         qml/AgentDot.qml
+        qml/MorphingCompanion.qml
         qml/OverlayContent.qml
+        qml/TaskListContent.qml
     DEPENDENCIES
         QtQuick
         QtQuick.Effects
@@ -54,9 +68,10 @@ target_link_libraries(clicky PRIVATE
     Qt6::Quick
     Qt6::Widgets
     QHotkey::QHotkey
+    X11::X11
 )
 
-set_target_properties(clicky PROPERTIES
-    WIN32_EXECUTABLE OFF
-    MACOSX_BUNDLE OFF
-)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(clicky PRIVATE
+        -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor)
+endif()

@@ -56,17 +56,35 @@ cmake --build . -j
 | `Ctrl+Alt+D`      | Dock the primary dot to the top-right corner / back   |
 |                   | to following the cursor.                              |
 
+## Focus mode
+
+Hold **Right Ctrl** and the blue companion smoothly morphs into a task
+menu card anchored at the cursor. Each row shows color + title +
+description + lifetime progress; hovering a row reveals an `✕` that
+immediately force-closes that task. Satellites fade out while the menu is
+open — rows are the canonical view in this mode.
+
+- **Release Right Ctrl** → card morphs back into the blue companion.
+- **Click anywhere outside the card** → menu closes (overlay stays
+  click-through afterwards).
+
+Right Ctrl detection uses X11's `XQueryKeymap` so the left and right Ctrl
+keys can be distinguished; Wayland is not supported for this gesture yet.
+
 ## Tunables
 
 | What                            | Where                                          |
 | ------------------------------- | ---------------------------------------------- |
 | Cursor poll rate                | `src/cursor_position_tracker.cpp`              |
+| Modifier poll rate              | `src/modifier_key_monitor.cpp`                 |
 | Task lifetime, flash hold, HSV  | `src/companion_state.cpp` (top-of-file consts) |
 | Always-on-top re-stack interval | `src/overlay_window.cpp`                       |
 | Tray icon size / colors         | `src/tray_icon_manager.cpp`                    |
 | Hotkey strings                  | `src/global_hotkey_manager.cpp`                |
 | Orbit radius / rotation period  | `qml/OverlayContent.qml` (header tunables)     |
+| Focus bubble / list layout      | `qml/OverlayContent.qml` (focus tunables)      |
 | Glow / blur / pulse / ring      | `qml/AgentDot.qml` (header tunables + inline)  |
+| Task-list panel styling         | `qml/TaskListPanel.qml`                        |
 
 ## Known limitations
 
