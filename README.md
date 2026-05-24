@@ -68,7 +68,7 @@ cmake --build . -j
 
 Hold **Right Ctrl** and the blue companion smoothly morphs into a task
 menu card anchored at the cursor. Each row shows color + title +
-description + lifetime progress; hovering a row reveals an `✕` that
+description + work progress; hovering a row reveals an `✕` that
 immediately force-closes that task. Satellites fade out while the menu is
 open — rows are the canonical view in this mode.
 

@@ -95,7 +95,7 @@ Item {
 
     // ---- Morphing companion (MenuOpen only — invisible in Passive) ----
     MorphingCompanion {
-        id: companion
+        id: morphingCompanion
         z: 3
         currentVoiceState: overlayRoot.currentVoiceState
         cursorPosX: overlayRoot.cursorPosX

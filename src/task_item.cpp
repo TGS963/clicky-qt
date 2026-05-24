@@ -19,7 +19,7 @@ TaskItem::~TaskItem() {
 
 void TaskItem::advance(qreal deltaSeconds) {
     elapsedSecondsValue += deltaSeconds;
-    emit tickedAhead();
+    emit elapsedSecondsChanged();
 }
 
 void TaskItem::setStatus(Status newStatus) {
