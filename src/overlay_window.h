@@ -6,9 +6,11 @@
 class CompanionState;
 
 // Full-screen transparent QQuickView that hosts the QML overlay (cursor-
-// following primary dot + orbiting satellite stars). Configured for:
+// following primary dot + orbiting satellite stars + focus-mode bubble and
+// task list). Configured for:
 //   - alpha-blended surface (desktop visible behind transparent regions)
-//   - click-through (Qt::WindowTransparentForInput)
+//   - click-through in Passive mode (Qt::WindowTransparentForInput); becomes
+//     interactive while the user holds Right Ctrl (focus mode)
 //   - always-on-top with periodic re-raise for X11 WMs that re-stack on
 //     focus changes
 class OverlayWindow : public QQuickView {
@@ -18,10 +20,12 @@ public:
 
     void showFullScreenOnPrimaryDisplay();
 
+private slots:
+    void applyInteractionModeFlags();
+
 private:
     CompanionState* companionStateValue = nullptr;
     QTimer keepAboveTimer;
 
-    void applyClickThroughAndAlwaysAboveAttributes();
     void raiseAboveOtherWindows();
 };

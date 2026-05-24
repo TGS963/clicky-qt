@@ -1,8 +1,10 @@
 #include "companion_state.h"
 #include "cursor_position_tracker.h"
 #include "global_hotkey_manager.h"
+#include "modifier_key_monitor.h"
 #include "overlay_window.h"
 #include "task_item.h"
+#include "task_list_model.h"
 #include "tray_icon_manager.h"
 
 #include <QApplication>
@@ -32,12 +34,19 @@ int main(int argc, char** argv) {
         QML_MODULE_URI, QML_MODULE_MAJOR_VERSION, QML_MODULE_MINOR_VERSION,
         "TaskItem",
         QStringLiteral("TaskItem instances are created by the application."));
+    qmlRegisterUncreatableType<TaskListModel>(
+        QML_MODULE_URI, QML_MODULE_MAJOR_VERSION, QML_MODULE_MINOR_VERSION,
+        "TaskListModel",
+        QStringLiteral("TaskListModel is provided by the application."));
 
     OverlayWindow overlayWindow(&companionState);
     overlayWindow.showFullScreenOnPrimaryDisplay();
 
     CursorPositionTracker cursorPositionTracker(&companionState);
     cursorPositionTracker.start();
+
+    ModifierKeyMonitor modifierKeyMonitor(&companionState);
+    modifierKeyMonitor.start();
 
     GlobalHotkeyManager globalHotkeyManager(&companionState);
 

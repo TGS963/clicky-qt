@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QMenu>
 #include <QObject>
+#include <QScopedPointer>
 #include <QSystemTrayIcon>
 
 class CompanionState;
@@ -20,4 +22,5 @@ public:
 private:
     CompanionState* companionStateValue = nullptr;
     QSystemTrayIcon* trayIcon = nullptr;
+    QScopedPointer<QMenu> contextMenu;
 };

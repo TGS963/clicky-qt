@@ -28,4 +28,3 @@ GlobalHotkeyManager::GlobalHotkeyManager(CompanionState* companionState, QObject
     });
 }
 
-GlobalHotkeyManager::~GlobalHotkeyManager() = default;
