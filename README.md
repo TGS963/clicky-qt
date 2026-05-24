@@ -1,8 +1,10 @@
 # Clicky (Qt6)
 
-Linux-native push-to-talk Claude companion. Currently a UI/UX prototype:
-overlay + cursor follow + state choreography. AI plumbing (audio capture,
-streaming transcription, Claude vision, ElevenLabs TTS) is not wired up yet.
+Linux-native push-to-talk voice companion, built around local models —
+local LLM, local speech-to-text, local text-to-speech. No cloud, no API
+keys. Currently a UI/UX prototype: overlay + cursor follow + state
+choreography. The AI plumbing (audio capture, local STT, local LLM
+inference, local TTS) is not wired up yet.
 
 ## Architecture
 
