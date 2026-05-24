@@ -19,6 +19,14 @@ constexpr int TASK_TICK_INTERVAL_MS = 16;
 // Slightly larger than the QML constant to absorb scheduling jitter.
 constexpr qreal BIRTH_ANIMATION_TICK_CAP_SECONDS = 0.5;
 
+// Listening waveform stub: N bars, refreshed at ~30 Hz with smoothed
+// random amplitudes until real audio capture is wired in.
+// Rendered inside the primary dot at listening size, so the count is
+// deliberately small — 5 bars fit clearly inside a ~36 px circle.
+constexpr int LISTENING_BAR_COUNT = 5;
+constexpr int LISTENING_AMPLITUDE_TICK_MS = 33;
+constexpr qreal LISTENING_AMPLITUDE_SMOOTHING = 0.55;  // 0=instant, 1=frozen
+
 // Delay between a task reaching a terminal status and being physically
 // removed from the model. Gives the QML side time to fade the satellite +
 // the row out before the delegate is destroyed.
@@ -56,14 +64,54 @@ CompanionState::CompanionState(QObject* parent)
     primaryFlashReleaseTimer.setSingleShot(true);
     primaryFlashReleaseTimer.setInterval(PRIMARY_FLASH_HOLD_DURATION_MS);
     connect(&primaryFlashReleaseTimer, &QTimer::timeout, this, &CompanionState::endPrimaryFlash);
+
+    listeningAmplitudesValue.reserve(LISTENING_BAR_COUNT);
+    for (int barIndex = 0; barIndex < LISTENING_BAR_COUNT; ++barIndex) {
+        listeningAmplitudesValue.append(0.0);
+    }
+    listeningAmplitudeTimer.setInterval(LISTENING_AMPLITUDE_TICK_MS);
+    connect(&listeningAmplitudeTimer, &QTimer::timeout,
+            this, &CompanionState::tickListeningAmplitudes);
+}
+
+int CompanionState::listeningBarCount() const {
+    return LISTENING_BAR_COUNT;
 }
 
 void CompanionState::setVoiceState(VoiceState newVoiceState) {
     if (voiceStateValue == newVoiceState) {
         return;
     }
+    const bool wasListening = voiceStateValue == Listening;
     voiceStateValue = newVoiceState;
+    const bool isListening = voiceStateValue == Listening;
+    if (isListening && !wasListening) {
+        listeningAmplitudeTimer.start();
+    } else if (!isListening && wasListening) {
+        listeningAmplitudeTimer.stop();
+        resetListeningAmplitudes();
+    }
     emit voiceStateChanged();
+}
+
+void CompanionState::tickListeningAmplitudes() {
+    QRandomGenerator* rng = QRandomGenerator::global();
+    for (int barIndex = 0; barIndex < listeningAmplitudesValue.size(); ++barIndex) {
+        const qreal previousAmplitude = listeningAmplitudesValue.at(barIndex).toReal();
+        const qreal targetAmplitude = rng->generateDouble();
+        const qreal smoothedAmplitude =
+            LISTENING_AMPLITUDE_SMOOTHING * previousAmplitude
+            + (1.0 - LISTENING_AMPLITUDE_SMOOTHING) * targetAmplitude;
+        listeningAmplitudesValue[barIndex] = smoothedAmplitude;
+    }
+    emit listeningAmplitudesChanged();
+}
+
+void CompanionState::resetListeningAmplitudes() {
+    for (int barIndex = 0; barIndex < listeningAmplitudesValue.size(); ++barIndex) {
+        listeningAmplitudesValue[barIndex] = 0.0;
+    }
+    emit listeningAmplitudesChanged();
 }
 
 void CompanionState::setOverlayMode(OverlayMode newOverlayMode) {

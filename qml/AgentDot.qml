@@ -4,10 +4,11 @@ import Clicky
 
 // Companion dot rendered in two modes:
 //   - Primary dot (default): tracks the cursor, drives the voice-state
-//     palette (idle/listening/processing/responding), and shows a pulse +
-//     spinning ring while listening.
+//     palette (idle/listening/processing/responding). While listening, the
+//     dot grows and renders a small bar waveform inside, fed by
+//     CompanionState.listeningAmplitudes.
 //   - Satellite star (isSatelliteStar=true): smaller, color comes entirely
-//     from overrideColor. Skips the listening pulse / ring entirely.
+//     from overrideColor. Skips listening visuals entirely.
 //
 // `overrideColor` is animated as an alpha-weighted blend over the
 // voice-state color so transitions between blue and a task color are smooth.
@@ -35,8 +36,9 @@ Item {
     readonly property real primaryCoreSizePx: 16
     readonly property real satelliteCoreSizePx: 6
     readonly property int colorFlashDurationMs: 380
-    readonly property int pulseAnimationDurationMs: 550
-    readonly property int ringRotationDurationMs: 1100
+
+    readonly property bool isPrimaryListening:
+        !isSatelliteStar && currentVoiceState === CompanionState.Listening
 
     width: isSatelliteStar ? satelliteCoreSizePx : primaryCoreSizePx
     height: width
@@ -56,11 +58,25 @@ Item {
     // Alpha-weighted blend between voiceStateColor and overrideColor. As the
     // Behavior on overrideColor animates the alpha, this glides cleanly
     // between blue and the flash color with no threshold jump.
-    property color resolvedBaseColor: Qt.rgba(
+    property color blendedVoiceColor: Qt.rgba(
         voiceStateColor.r * (1.0 - overrideColor.a) + overrideColor.r * overrideColor.a,
         voiceStateColor.g * (1.0 - overrideColor.a) + overrideColor.g * overrideColor.a,
         voiceStateColor.b * (1.0 - overrideColor.a) + overrideColor.b * overrideColor.a,
         1.0)
+
+    // While the primary dot is listening, swap to a neutral charcoal/silver
+    // backdrop. The flash/voice color does not tint the dot itself — it
+    // becomes the *bar* color, leaving the dot as a contrasting surface for
+    // the waveform to sit on.
+    readonly property color listeningBackdropColor: "#2c2f37"
+    property color resolvedBaseColor:
+        isPrimaryListening ? listeningBackdropColor : blendedVoiceColor
+    Behavior on resolvedBaseColor {
+        ColorAnimation {
+            duration: agentDotRoot.colorFlashDurationMs
+            easing.type: Easing.InOutCubic
+        }
+    }
 
     property color resolvedHighlightColor: Qt.lighter(resolvedBaseColor, 1.9)
     property color resolvedOuterColor: Qt.darker(resolvedBaseColor, 1.4)
@@ -134,46 +150,53 @@ Item {
                                                           0.0) }
         }
 
-        // Listening pulse — primary only.
-        SequentialAnimation on scale {
-            running: agentDotRoot.currentVoiceState === CompanionState.Listening
-                     && !agentDotRoot.isSatelliteStar
-            loops: Animation.Infinite
-            NumberAnimation {
-                from: 1.0; to: 1.18
-                duration: agentDotRoot.pulseAnimationDurationMs
-                easing.type: Easing.InOutSine
-            }
-            NumberAnimation {
-                from: 1.18; to: 1.0
-                duration: agentDotRoot.pulseAnimationDurationMs
-                easing.type: Easing.InOutSine
-            }
-        }
     }
 
-    // ---- Spinning ring (primary only, when listening) ----
-    Rectangle {
-        id: spinningRing
-        visible: !agentDotRoot.isSatelliteStar
+    // ---- Inline listening waveform (primary only, when listening) ----
+    // Bars are sized + positioned to fit inside the grown dot. Each delegate
+    // pulls its height from `companionState.listeningAmplitudes[index]`.
+    Row {
+        id: listeningWaveform
         anchors.centerIn: parent
-        width: 26
-        height: 26
-        radius: 13
-        color: "transparent"
-        border.width: 2
-        border.color: agentDotRoot.resolvedBaseColor
+        spacing: 1.2
 
-        opacity: agentDotRoot.currentVoiceState === CompanionState.Listening ? 0.9 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 180 } }
+        // 5 bars at 1.2 px wide + 1.2 px spacing = 10.8 px row inside a
+        // 16 px primary dot. Max height capped to a chord short of the
+        // full diameter so bars don't poke past the circular silhouette.
+        readonly property real barWidth: 1.2
+        readonly property real baseBarHeight: 2
+        readonly property real maxBarHeight:
+            Math.max(baseBarHeight, agentDotRoot.width * 0.7)
+        // Bars carry the upcoming task color (the random hue chosen at
+        // PTT-start), so the dot itself is just the neutral backdrop.
+        readonly property color barColor:
+            companionState.primaryFlashColor.a > 0
+                ? companionState.primaryFlashColor
+                : "#fff4d6"
 
-        RotationAnimation on rotation {
-            running: agentDotRoot.currentVoiceState === CompanionState.Listening
-                     && !agentDotRoot.isSatelliteStar
-            loops: Animation.Infinite
-            from: 0
-            to: 360
-            duration: agentDotRoot.ringRotationDurationMs
+        opacity: agentDotRoot.isPrimaryListening ? 1.0 : 0.0
+        visible: opacity > 0.01
+        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.InOutQuad } }
+
+        Repeater {
+            model: companionState.listeningBarCount
+            delegate: Rectangle {
+                required property int index
+                readonly property real amplitude: {
+                    const amps = companionState.listeningAmplitudes;
+                    return index < amps.length ? amps[index] : 0.0;
+                }
+                width: listeningWaveform.barWidth
+                height: listeningWaveform.baseBarHeight
+                        + amplitude * (listeningWaveform.maxBarHeight
+                                       - listeningWaveform.baseBarHeight)
+                radius: width / 2
+                color: listeningWaveform.barColor
+                anchors.verticalCenter: parent.verticalCenter
+                Behavior on height {
+                    NumberAnimation { duration: 80; easing.type: Easing.OutCubic }
+                }
+            }
         }
     }
 }
