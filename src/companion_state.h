@@ -66,7 +66,7 @@ public:
 
     // Held-modifier task menu lifecycle:
     //   Passive  -> default; overlay is click-through, primary dot follows cursor
-    //   MenuOpen -> Right Ctrl held; primary dot morphs into the task menu card
+    //   MenuOpen -> trigger key held (Right Ctrl on Linux/Win, Right ⌥ on macOS)
     enum InteractionMode {
         Passive,
         MenuOpen,

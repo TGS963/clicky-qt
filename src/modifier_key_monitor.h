@@ -5,15 +5,10 @@
 
 class CompanionState;
 
-// Polls the X11 keymap at ~60 Hz to detect when Right Ctrl is held vs
-// released. On press it asks CompanionState to enter focus mode; on release
-// it asks it to exit. The distinction between left and right Ctrl is
-// determined via X11's keycode tables — Qt's queryKeyboardModifiers()
-// collapses them into a single Ctrl bit, which is insufficient here.
-//
-// X11-only. Wayland would need a different mechanism (e.g. a portal-based
-// global shortcut or compositor-specific protocol); not implemented in this
-// phase.
+// Detects trigger key held vs released and drives the task menu open/close.
+// Linux/X11: polls XQueryKeymap for Right Ctrl.
+// macOS:     NSEvent global monitor for Right ⌥ (no polling, event-driven).
+// Windows:   polls GetAsyncKeyState for VK_RCONTROL.
 class ModifierKeyMonitor : public QObject {
     Q_OBJECT
 public:
@@ -23,14 +18,26 @@ public:
     void start();
     void stop();
 
+    // Called from the macOS NSEvent callback (main thread).
+    void handleTriggerKey(bool pressed);
+
 private slots:
     void pollKeymap();
 
 private:
     CompanionState* companionStateValue = nullptr;
-    QTimer pollingTimer;
+    bool triggerKeyWasPressed = false;
 
-    void* x11DisplayHandle = nullptr;   // opaque ::Display*
+#if defined(Q_OS_LINUX) || defined(Q_OS_WIN)
+    QTimer pollingTimer;
+#endif
+
+#ifdef Q_OS_LINUX
+    void* x11DisplayHandle = nullptr;
     unsigned char rightControlKeycode = 0;
-    bool rightControlWasPressed = false;
+#endif
+
+#ifdef Q_OS_MACOS
+    void* macMonitorHandle = nullptr;
+#endif
 };

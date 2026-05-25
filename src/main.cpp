@@ -8,6 +8,9 @@
 #include "tray_icon_manager.h"
 
 #include <QApplication>
+#include <QGuiApplication>
+#include <QList>
+#include <QScreen>
 
 namespace {
 constexpr auto APPLICATION_NAME = "Clicky";
@@ -23,9 +26,6 @@ int main(int argc, char** argv) {
 
     CompanionState companionState;
 
-    // Expose CompanionState's VoiceState / OverlayMode enums and TaskItem to
-    // QML under the `Clicky` import so QML can reference them by name
-    // (e.g. `CompanionState.Listening`) instead of magic integers.
     qmlRegisterUncreatableType<CompanionState>(
         QML_MODULE_URI, QML_MODULE_MAJOR_VERSION, QML_MODULE_MINOR_VERSION,
         "CompanionState",
@@ -39,8 +39,34 @@ int main(int argc, char** argv) {
         "TaskListModel",
         QStringLiteral("TaskListModel is provided by the application."));
 
-    OverlayWindow overlayWindow(&companionState);
-    overlayWindow.showFullScreenOnPrimaryDisplay();
+    // One overlay window per physical screen. Each window knows its screen's
+    // geometry so QML can convert global cursor coords to window-local coords
+    // and hide the dot when the cursor is on a different screen.
+    QList<OverlayWindow*> overlayWindows;
+
+    auto createWindowForScreen = [&](QScreen* screen) {
+        auto* win = new OverlayWindow(&companionState, screen);
+        win->showOnScreen();
+        overlayWindows.append(win);
+    };
+
+    for (QScreen* screen : QGuiApplication::screens()) {
+        createWindowForScreen(screen);
+    }
+
+    QObject::connect(&application, &QGuiApplication::screenAdded,
+                     [&](QScreen* screen) { createWindowForScreen(screen); });
+
+    QObject::connect(&application, &QGuiApplication::screenRemoved,
+                     [&](QScreen* screen) {
+        for (int i = 0; i < overlayWindows.size(); ++i) {
+            if (overlayWindows[i]->overlayScreen() == screen) {
+                overlayWindows[i]->deleteLater();
+                overlayWindows.removeAt(i);
+                break;
+            }
+        }
+    });
 
     CursorPositionTracker cursorPositionTracker(&companionState);
     cursorPositionTracker.start();
