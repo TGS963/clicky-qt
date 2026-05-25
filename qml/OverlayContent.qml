@@ -1,12 +1,11 @@
 import QtQuick
 import Clicky
 
-// Root of the overlay scene. Renders:
-//   - one AgentDot that follows the cursor; visible only in Passive
-//   - one MorphingCompanion that morphs from a small blue surface (right
-//     under the AgentDot) into the task menu card; invisible in Passive
-//   - a Repeater of satellite stars orbiting the dot position; hidden while
-//     the menu is open
+// Root of the overlay scene. One instance runs per physical screen.
+// `screenRect` is injected as a context property by OverlayWindow (C++);
+// it holds the screen's global geometry so this file can:
+//   - convert global cursor coords → window-local coords
+//   - show the dot / menu only when content belongs to this screen
 Item {
     id: overlayRoot
     anchors.fill: parent
@@ -34,29 +33,45 @@ Item {
     }
 
     // ---- Derived state ----
-    // Pass the VoiceState enum through as an int. Both AgentDot and
-    // MorphingCompanion compare against CompanionState.Listening etc
-    // directly — no enum→string→ternary round-trip.
     readonly property int currentVoiceState: companionState.voiceState
     readonly property bool isMenuOpen: companionState.interactionMode === CompanionState.MenuOpen
 
+    // Global cursor coordinates from CompanionState.
     readonly property real cursorPosX: companionState.cursorScreenPosition.x
     readonly property real cursorPosY: companionState.cursorScreenPosition.y
-    readonly property real dotTargetX: cursorPosX + followOffset
-    readonly property real dotTargetY: cursorPosY + followOffset
 
-    // ---- Click-outside-to-dismiss backdrop (menu open only) ----
+    // Window-local cursor coordinates (global minus this screen's top-left).
+    // screenRect is injected per-window by OverlayWindow::OverlayWindow().
+    readonly property real localCursorX: cursorPosX - screenRect.x
+    readonly property real localCursorY: cursorPosY - screenRect.y
+
+    readonly property real dotTargetX: localCursorX + followOffset
+    readonly property real dotTargetY: localCursorY + followOffset
+
+    // Cursor is on this screen when its global position falls inside screenRect.
+    readonly property bool isCursorOnThisScreen:
+        cursorPosX >= screenRect.x && cursorPosX < screenRect.x + screenRect.width &&
+        cursorPosY >= screenRect.y && cursorPosY < screenRect.y + screenRect.height
+
+    // Menu belongs to the screen where the cursor was when the menu opened.
+    readonly property bool isMenuOnThisScreen: isMenuOpen && (
+        companionState.taskMenuAnchorPosition.x >= screenRect.x &&
+        companionState.taskMenuAnchorPosition.x < screenRect.x + screenRect.width &&
+        companionState.taskMenuAnchorPosition.y >= screenRect.y &&
+        companionState.taskMenuAnchorPosition.y < screenRect.y + screenRect.height)
+
+    // ---- Click-outside-to-dismiss backdrop (menu open on this screen only) ----
     MouseArea {
         id: menuDismissBackdrop
         anchors.fill: parent
-        enabled: overlayRoot.isMenuOpen
-        visible: overlayRoot.isMenuOpen
+        enabled: overlayRoot.isMenuOnThisScreen
+        visible: overlayRoot.isMenuOnThisScreen
         hoverEnabled: false
         z: 0
         onClicked: companionState.closeTaskMenu()
     }
 
-    // ---- Primary companion dot (Passive only) ----
+    // ---- Primary companion dot (Passive only, this screen only) ----
     AgentDot {
         id: primaryAgentDot
         z: 2
@@ -77,7 +92,7 @@ Item {
                 easing.type: Easing.InOutQuad
             }
         }
-        visible: opacity > 0.01
+        visible: opacity > 0.01 && overlayRoot.isCursorOnThisScreen
 
         Behavior on x {
             NumberAnimation {
@@ -93,17 +108,20 @@ Item {
         }
     }
 
-    // ---- Morphing companion (MenuOpen only — invisible in Passive) ----
+    // ---- Morphing companion (MenuOpen on this screen only) ----
     MorphingCompanion {
         id: morphingCompanion
         z: 3
         currentVoiceState: overlayRoot.currentVoiceState
-        cursorPosX: overlayRoot.cursorPosX
-        cursorPosY: overlayRoot.cursorPosY
+        cursorPosX: overlayRoot.localCursorX
+        cursorPosY: overlayRoot.localCursorY
         followOffsetPx: overlayRoot.followOffset
+        screenOriginX: screenRect.x
+        screenOriginY: screenRect.y
+        isMenuOpen: overlayRoot.isMenuOnThisScreen
     }
 
-    // ---- Satellite stars ----
+    // ---- Satellite stars (follow primary dot, this screen only) ----
     Repeater {
         id: satelliteRepeater
         model: companionState.activeTasksModel
@@ -118,11 +136,6 @@ Item {
             readonly property real easedBirthProgress: 1 - Math.pow(1 - birthProgress, 3)
             readonly property real currentRadiusPx: easedBirthProgress * overlayRoot.orbitRadiusPx
 
-            // Stationary angular slot from index/count keeps satellites
-            // equispaced; the shared globalOrbitPhase makes them all rotate
-            // together so the spacing is preserved over time. Not readonly
-            // so the Behavior below can smooth re-bindings when count
-            // changes (task spawn / expire).
             property real stationaryAngleRadians:
                 2.0 * Math.PI * index / Math.max(1, satelliteRepeater.count)
             Behavior on stationaryAngleRadians {
@@ -134,9 +147,6 @@ Item {
             readonly property real currentAngleRadians:
                 stationaryAngleRadians + overlayRoot.globalOrbitPhaseRadians
 
-            // Fade in over the birth window; once terminal, fade to 0
-            // smoothly (model removal is scheduled with a matching delay in
-            // CompanionState).
             readonly property real fadeOpacity: {
                 if (task.isTerminal) return 0.0;
                 if (task.elapsedSeconds < overlayRoot.satelliteBirthFadeInSeconds) {
@@ -148,11 +158,12 @@ Item {
             isSatelliteStar: true
             overrideColor: task.color
             currentVoiceState: CompanionState.Idle
-            opacity: fadeOpacity * (overlayRoot.isMenuOpen ? 0.0 : 1.0)
+            opacity: fadeOpacity
+                     * (overlayRoot.isMenuOpen ? 0.0 : 1.0)
+                     * (overlayRoot.isCursorOnThisScreen ? 1.0 : 0.0)
             Behavior on opacity { NumberAnimation { duration: 360; easing.type: Easing.OutCubic } }
             z: 1
 
-            // Orbit around the AgentDot's rendered center.
             readonly property real orbitCenterX: primaryAgentDot.x + primaryAgentDot.width / 2
             readonly property real orbitCenterY: primaryAgentDot.y + primaryAgentDot.height / 2
 

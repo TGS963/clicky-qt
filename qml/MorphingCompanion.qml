@@ -22,9 +22,16 @@ Rectangle {
     property int currentVoiceState: CompanionState.Idle
     // Cursor + follow offset are passed in so OverlayContent owns the math
     // and MorphingCompanion doesn't recompute it independently.
+    // All coordinates are window-local (screen origin already subtracted).
     property real cursorPosX: 0
     property real cursorPosY: 0
     property real followOffsetPx: 22
+    // Screen origin (global coords of top-left corner of this window's screen).
+    // Used to convert the global taskMenuAnchorPosition to window-local coords.
+    property real screenOriginX: 0
+    property real screenOriginY: 0
+    // Whether the menu is open on this specific screen (gated by parent).
+    property bool isMenuOpen: false
 
     // ---- Tunables ----
     readonly property real passiveSizePx: 16
@@ -39,9 +46,10 @@ Rectangle {
     readonly property int contentFadeDurationMs: 200
 
     // ---- Derived state ----
-    readonly property bool isMenuOpen: companionState.interactionMode === CompanionState.MenuOpen
-    readonly property real anchorPosX: companionState.taskMenuAnchorPosition.x
-    readonly property real anchorPosY: companionState.taskMenuAnchorPosition.y
+    // anchorPos is the global cursor position captured when the menu opened,
+    // converted to window-local coords by subtracting this screen's origin.
+    readonly property real anchorPosX: companionState.taskMenuAnchorPosition.x - screenOriginX
+    readonly property real anchorPosY: companionState.taskMenuAnchorPosition.y - screenOriginY
 
     // Companion palette mirrors AgentDot primary mode.
     readonly property color idleColor: "#5aa9ff"
