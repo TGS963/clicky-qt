@@ -2,8 +2,13 @@
 
 #include "companion_state.h"
 
+#ifdef Q_OS_MACOS
+#include "mac_window_config.h"
+#endif
+
 #include <QGuiApplication>
 #include <QQmlContext>
+#include <QQmlEngine>
 #include <QScreen>
 #include <QSurfaceFormat>
 
@@ -33,15 +38,18 @@ OverlayWindow::OverlayWindow(CompanionState* companionState, QQuickView* parent)
              | Qt::Tool
              | Qt::WindowTransparentForInput
              | Qt::NoDropShadowWindowHint
-             | Qt::X11BypassWindowManagerHint);
+             | Qt::X11BypassWindowManagerHint
+             | Qt::WindowDoesNotAcceptFocus);
 
     setResizeMode(QQuickView::SizeRootObjectToView);
 
     rootContext()->setContextProperty("companionState", companionStateValue);
 
-    // QML module 'Clicky' is registered via qt_add_qml_module in CMakeLists.txt;
-    // module files resolve under qrc:/qt/qml/Clicky/<filename>.qml at runtime.
-    loadFromModule("Clicky", "OverlayContent");
+    // QML files are embedded at qrc:/Clicky/qml/*.qml; add the root so
+    // 'import Clicky' inside QML resolves the module's qmldir from QRC.
+    engine()->addImportPath(QStringLiteral("qrc:/"));
+
+    setSource(QUrl(QStringLiteral("qrc:/Clicky/qml/OverlayContent.qml")));
 
     keepAboveTimer.setInterval(WINDOW_RESTACK_INTERVAL_MS);
     connect(&keepAboveTimer, &QTimer::timeout, this, &OverlayWindow::raiseAboveOtherWindows);
@@ -55,9 +63,17 @@ void OverlayWindow::showFullScreenOnPrimaryDisplay() {
     if (const QScreen* primaryScreen = QGuiApplication::primaryScreen()) {
         setGeometry(primaryScreen->geometry());
     }
-    applyInteractionModeFlags();
     show();
-    keepAboveTimer.start();
+    // Must come after show() so the native window handle (NSWindow) exists.
+    applyInteractionModeFlags();
+#ifdef Q_OS_MACOS
+    configureMacOverlayWindow(winId());
+#endif
+    // X11 WMs (dwm, i3) re-stack windows on focus change; periodic raise counters
+    // that. Not needed on macOS or Wayland — they manage always-on-top natively.
+    if (QGuiApplication::platformName() == QLatin1String("xcb")) {
+        keepAboveTimer.start();
+    }
 }
 
 void OverlayWindow::applyInteractionModeFlags() {
