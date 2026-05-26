@@ -96,16 +96,16 @@ Item {
         layer.enabled: true
         layer.effect: MultiEffect {
             blurEnabled: true
-            blurMax:        agentDotRoot.isSatelliteStar ? 64 : 32
+            blurMax:        agentDotRoot.isSatelliteStar ? 96 : 32
             blur: 1.0
-            blurMultiplier: agentDotRoot.isSatelliteStar ? 1.6 : 0.9
-            brightness:     agentDotRoot.isSatelliteStar ? 0.95 : 0.12
-            saturation:     agentDotRoot.isSatelliteStar ? 1.6 : 0.0
+            blurMultiplier: agentDotRoot.isSatelliteStar ? 2.1 : 0.9
+            brightness:     agentDotRoot.isSatelliteStar ? 1.35 : 0.12
+            saturation:     agentDotRoot.isSatelliteStar ? 2.1 : 0.0
             // paddingRect must comfortably exceed blurMax*blurMultiplier or
             // the halo is clipped (satellite) / brightness-boosted-uniformly
             // into a rectangle (primary). Keep primary tight, satellite wide.
             paddingRect: agentDotRoot.isSatelliteStar
-                ? Qt.rect(-120, -120, 240, 240)
+                ? Qt.rect(-160, -160, 320, 320)
                 : Qt.rect(-30, -30, 60, 60)
         }
     }
@@ -125,8 +125,8 @@ Item {
         Gradient {
             id: satelliteCoreGradient
             GradientStop { position: 0.0;  color: "#ffffff" }
-            GradientStop { position: 0.25; color: Qt.lighter(agentDotRoot.resolvedBaseColor, 1.4) }
-            GradientStop { position: 0.55; color: agentDotRoot.resolvedBaseColor }
+            GradientStop { position: 0.30; color: Qt.lighter(agentDotRoot.resolvedBaseColor, 1.7) }
+            GradientStop { position: 0.60; color: Qt.lighter(agentDotRoot.resolvedBaseColor, 1.25) }
             GradientStop { position: 0.85; color: Qt.rgba(agentDotRoot.resolvedOuterColor.r,
                                                           agentDotRoot.resolvedOuterColor.g,
                                                           agentDotRoot.resolvedOuterColor.b,
