@@ -4,18 +4,33 @@
 static const unsigned short kRightOptionKeyCode = 0x3D;
 
 void* startMacModifierMonitor(void (*cb)(bool pressed, void* ctx), void* ctx) {
-    id monitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskFlagsChanged
-                                                        handler:^(NSEvent* event) {
+    void (^handler)(NSEvent*) = ^(NSEvent* event) {
         if (event.keyCode != kRightOptionKeyCode) return;
-        // modifierFlags reflects state AFTER the change: option bit set = key down.
         bool pressed = (event.modifierFlags & NSEventModifierFlagOption) != 0;
         cb(pressed, ctx);
+    };
+
+    id globalMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSEventMaskFlagsChanged
+                                                              handler:handler];
+
+    // Covers the case where our window becomes key (loses NSNonactivatingPanelMask);
+    // global monitor only fires for events going to other apps.
+    // Must return the event — nil would swallow it.
+    id localMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskFlagsChanged
+                                                            handler:^NSEvent*(NSEvent* event) {
+        handler(event);
+        return event;
     }];
-    return (__bridge_retained void*)monitor;
+
+    NSMutableArray* monitors = [NSMutableArray array];
+    if (globalMonitor) [monitors addObject:globalMonitor];
+    if (localMonitor)  [monitors addObject:localMonitor];
+    return (__bridge_retained void*)monitors;
 }
 
 void stopMacModifierMonitor(void* handle) {
     if (!handle) return;
-    id monitor = (__bridge_transfer id)handle;
-    [NSEvent removeMonitor:monitor];
+    NSMutableArray* monitors = (__bridge_transfer NSMutableArray*)handle;
+    for (id m in monitors)
+        [NSEvent removeMonitor:m];
 }

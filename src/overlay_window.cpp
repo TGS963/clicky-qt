@@ -81,6 +81,12 @@ void OverlayWindow::applyInteractionModeFlags() {
     const bool wantClickThrough =
         companionStateValue->interactionMode() == CompanionState::Passive;
     setFlag(Qt::WindowTransparentForInput, wantClickThrough);
+#ifdef Q_OS_MACOS
+    // Qt's QCocoaWindow::setWindowFlags() resets the NSScreenSaverWindowLevel
+    // set by configureMacOverlayWindow. Re-apply immediately; both calls are
+    // synchronous on the main thread so no frame is rendered in between.
+    restoreMacWindowLevel(winId());
+#endif
 }
 
 void OverlayWindow::raiseAboveOtherWindows() {

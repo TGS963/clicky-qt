@@ -7,4 +7,7 @@
 //   - collectionBehavior: canJoinAllSpaces + stationary + fullScreenAuxiliary
 //   - orderFrontRegardless      (show without activating our app)
 void configureMacOverlayWindow(unsigned long long winId);
+
+// Restore NSScreenSaverWindowLevel after Qt's setWindowFlags() resets it.
+void restoreMacWindowLevel(unsigned long long winId);
 #endif
