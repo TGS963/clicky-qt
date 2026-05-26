@@ -4,8 +4,10 @@
 #include "task_list_model.h"
 
 #include <QColor>
+#include <QFile>
 #include <QPointer>
 #include <QRandomGenerator>
+#include <QUrl>
 
 namespace {
 
@@ -33,6 +35,9 @@ constexpr qreal LISTENING_AMPLITUDE_SMOOTHING = 0.55;  // 0=instant, 1=frozen
 constexpr int TERMINAL_FADEOUT_BEFORE_REMOVAL_MS = 420;
 
 constexpr int PRIMARY_FLASH_HOLD_DURATION_MS = 280;
+
+// How long the just-captured screenshot thumbnail stays on screen.
+constexpr int SCREENSHOT_PREVIEW_HOLD_MS = 1000;
 
 constexpr int FULL_ROTATION_DEGREES = 360;
 
@@ -64,6 +69,16 @@ CompanionState::CompanionState(QObject* parent)
     primaryFlashReleaseTimer.setSingleShot(true);
     primaryFlashReleaseTimer.setInterval(PRIMARY_FLASH_HOLD_DURATION_MS);
     connect(&primaryFlashReleaseTimer, &QTimer::timeout, this, &CompanionState::endPrimaryFlash);
+
+    screenshotPreviewHideTimer.setSingleShot(true);
+    screenshotPreviewHideTimer.setInterval(SCREENSHOT_PREVIEW_HOLD_MS);
+    connect(&screenshotPreviewHideTimer, &QTimer::timeout, this, [this]() {
+        if (!screenshotPreviewActiveValue) {
+            return;
+        }
+        screenshotPreviewActiveValue = false;
+        emit screenshotPreviewActiveChanged();
+    });
 
     listeningAmplitudesValue.reserve(LISTENING_BAR_COUNT);
     for (int barIndex = 0; barIndex < LISTENING_BAR_COUNT; ++barIndex) {
@@ -127,14 +142,21 @@ void CompanionState::toggleOverlayMode() {
 }
 
 void CompanionState::togglePushToTalkListening() {
-    if (voiceStateValue == Listening) {
+    switch (inputSessionValue) {
+    case ScreenshotListening:
+        return;  // screenshot mode owns the listening state; ignore this key
+    case VoiceListening:
         spawnTaskUsingPendingColor();
+        inputSessionValue = NoInputSession;
         setVoiceState(Idle);
         schedulePrimaryFlashRelease();
-    } else {
+        return;
+    case NoInputSession:
+        inputSessionValue = VoiceListening;
         pendingTaskColorValue = pickRandomNonBlueTaskColor();
         beginPrimaryFlashHeld(pendingTaskColorValue);
         setVoiceState(Listening);
+        return;
     }
 }
 
@@ -145,6 +167,80 @@ void CompanionState::spawnSubprocessTask(const QString& title,
     auto* newTask = registerNewTask(taskColor, title,
                                     QStringLiteral("Starting %1…").arg(program));
     newTask->attachProcess(program, arguments);
+}
+
+void CompanionState::beginScreenshotListening(const QString& screenshotFilePath) {
+    if (inputSessionValue != NoInputSession) {
+        return;  // another mode owns the listening state; ignore
+    }
+    // Screenshot grabbed; now behave like the voice path — hold the flash and
+    // enter Listening so the dot shows the waveform while the user speaks the
+    // context for this capture. Audio capture itself is still stubbed.
+    inputSessionValue = ScreenshotListening;
+    pendingScreenshotPathValue = screenshotFilePath;
+    pendingTaskColorValue = pickRandomNonBlueTaskColor();
+    beginPrimaryFlashHeld(pendingTaskColorValue);
+    setVoiceState(Listening);
+    showScreenshotPreview(screenshotFilePath);
+}
+
+void CompanionState::finishScreenshotListeningAndSpawnTask() {
+    if (inputSessionValue != ScreenshotListening) {
+        return;  // not our session to finish
+    }
+    inputSessionValue = NoInputSession;
+    setVoiceState(Idle);
+    schedulePrimaryFlashRelease();
+    if (pendingScreenshotPathValue.isEmpty()) {
+        return;  // no pending capture (e.g. spurious finish); nothing to spawn
+    }
+    spawnScreenshotTask(pendingScreenshotPathValue);
+    pendingScreenshotPathValue.clear();
+}
+
+void CompanionState::showScreenshotPreview(const QString& screenshotFilePath) {
+    screenshotPreviewSourceValue = QUrl::fromLocalFile(screenshotFilePath).toString();
+    emit screenshotPreviewSourceChanged();
+    if (!screenshotPreviewActiveValue) {
+        screenshotPreviewActiveValue = true;
+        emit screenshotPreviewActiveChanged();
+    }
+    screenshotPreviewHideTimer.start();
+}
+
+void CompanionState::spawnScreenshotTask(const QString& screenshotFilePath) {
+    const QColor taskColor = pendingTaskColorValue.isValid()
+        ? pendingTaskColorValue
+        : pickRandomNonBlueTaskColor();
+
+    const QString title = QStringLiteral("Screenshot %1").arg(nextTaskOrdinalNumber++);
+    auto* newTask = registerNewTask(taskColor, title, screenshotFilePath);
+
+    QPointer<TaskItem> taskGuard(newTask);
+    connect(newTask, &TaskItem::statusChanged, this, [taskGuard, screenshotFilePath]() {
+        if (taskGuard && taskGuard->isTerminal()) {
+            QFile::remove(screenshotFilePath);
+        }
+    });
+
+    // No AI backend yet: hand the screenshot path to a demo subprocess.
+    // Audio capture is still stubbed, so the spoken context isn't passed yet;
+    // swap this for the real AI call later (screenshot path + transcribed
+    // audio) — the image path is already the task's input.
+    const QString demoCommand = QStringLiteral(
+        "echo \"analyzing screenshot $1 with voice context\"; "
+        "for i in 1 2 3 4 5; do "
+        "  echo \"PROGRESS: 0.$((i * 2))\"; "
+        "  echo \"inspecting region $i\"; "
+        "  sleep 1; "
+        "done; "
+        "echo \"PROGRESS: 1.0\"; "
+        "echo \"done\"");
+
+    newTask->attachProcess(
+        QStringLiteral("bash"),
+        QStringList{QStringLiteral("-c"), demoCommand,
+                    QStringLiteral("bash"), screenshotFilePath});
 }
 
 void CompanionState::setCursorScreenPosition(const QPointF& newCursorScreenPosition) {

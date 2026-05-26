@@ -37,8 +37,12 @@ set(CLICKY_SOURCES
     src/main.cpp
     src/companion_state.cpp
     src/companion_state.h
+    src/cursor_marked_screenshot_capturer.cpp
+    src/cursor_marked_screenshot_capturer.h
     src/cursor_position_tracker.cpp
     src/cursor_position_tracker.h
+    src/screenshot_capture_controller.cpp
+    src/screenshot_capture_controller.h
     src/global_hotkey_manager.cpp
     src/global_hotkey_manager.h
     src/modifier_key_monitor.cpp

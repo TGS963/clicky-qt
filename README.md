@@ -17,6 +17,12 @@ The application is a single Qt6 process:
   tasks, and a transient flash color used by the listening choreography.
 - `CursorPositionTracker` — polls `QCursor::pos()` at ~60 Hz and pushes it
   into `CompanionState`. Drives the QML cursor-following binding.
+- `ScreenshotCaptureController` — drives the screenshot + voice input mode as
+  a two-press toggle: press 1 hides the overlays, grabs the screen under the
+  cursor via `CursorMarkedScreenshotCapturer` (which draws a ring around the
+  pointer and saves a PNG), re-shows the overlays, and enters the listening
+  state for spoken context; press 2 stops listening and asks `CompanionState`
+  to spawn a task for the image.
 - `GlobalHotkeyManager` — registers the system-wide shortcuts via
   [QHotkey](https://github.com/Skycoder42/QHotkey) and forwards activations
   into `CompanionState`.
@@ -63,6 +69,17 @@ cmake --build . -j
 |                   | dot fades back to blue.                               |
 | `Ctrl+Alt+D`      | Dock the primary dot to the top-right corner / back   |
 |                   | to following the cursor.                              |
+| `Ctrl+Alt+S`      | Screenshot + voice mode. First press grabs the screen |
+|                   | under the cursor (ring drawn around the pointer, our   |
+|                   | own overlay hidden during the grab), flashes a         |
+|                   | thumbnail, and starts listening for spoken context.    |
+|                   | Second press stops listening and spawns a task for the |
+|                   | captured image. (Audio capture is stubbed, as in the   |
+|                   | voice mode.)                                           |
+
+The voice and screenshot modes are mutually exclusive: a listening session can
+only be ended by the key that started it, and the other mode's key is ignored
+while a session is open.
 
 ## Focus mode
 
@@ -89,6 +106,8 @@ keys can be distinguished; Wayland is not supported for this gesture yet.
 | Always-on-top re-stack interval | `src/overlay_window.cpp`                       |
 | Tray icon size / colors         | `src/tray_icon_manager.cpp`                    |
 | Hotkey strings                  | `src/global_hotkey_manager.cpp`                |
+| Screenshot marker ring          | `src/cursor_marked_screenshot_capturer.cpp`    |
+| Overlay hide-settle delay       | `src/screenshot_capture_controller.cpp`        |
 | Orbit radius / rotation period  | `qml/OverlayContent.qml` (header tunables)     |
 | Focus bubble / list layout      | `qml/OverlayContent.qml` (focus tunables)      |
 | Glow / blur / pulse / ring      | `qml/AgentDot.qml` (header tunables + inline)  |

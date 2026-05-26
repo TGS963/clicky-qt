@@ -71,6 +71,31 @@ Item {
         onClicked: companionState.closeTaskMenu()
     }
 
+    // ---- Screenshot thumbnail preview (flashed ~1s after a grab) ----
+    // Shows what was just captured, near the cursor, on the screen the cursor
+    // is on. Source + visibility are driven by CompanionState; the fade is
+    // local. Width is a tunable; height follows the image aspect ratio.
+    Image {
+        id: screenshotPreviewThumbnail
+        readonly property real thumbnailWidthPx: 160
+
+        z: 4
+        width: thumbnailWidthPx
+        fillMode: Image.PreserveAspectFit
+        cache: false  // each capture is a distinct file; don't cache stale ones
+        source: companionState.screenshotPreviewSource
+
+        x: overlayRoot.localCursorX + overlayRoot.followOffset
+        y: overlayRoot.localCursorY - height - overlayRoot.followOffset
+
+        opacity: (companionState.screenshotPreviewActive
+                  && overlayRoot.isCursorOnThisScreen) ? 1.0 : 0.0
+        visible: opacity > 0.01
+        Behavior on opacity {
+            NumberAnimation { duration: 180; easing.type: Easing.OutQuad }
+        }
+    }
+
     // ---- Primary companion dot (Passive only, this screen only) ----
     AgentDot {
         id: primaryAgentDot

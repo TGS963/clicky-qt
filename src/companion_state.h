@@ -40,6 +40,14 @@ class CompanionState : public QObject {
     Q_PROPERTY(QColor primaryFlashColor READ primaryFlashColor NOTIFY primaryFlashColorChanged)
     Q_PROPERTY(bool primaryFlashActive READ primaryFlashActive NOTIFY primaryFlashActiveChanged)
 
+    // --- Screenshot thumbnail preview (flashed briefly after a grab) ---
+    // file:// URL of the just-captured screenshot and whether the QML preview
+    // should currently be shown. Active for ~SCREENSHOT_PREVIEW_HOLD_MS.
+    Q_PROPERTY(QString screenshotPreviewSource READ screenshotPreviewSource
+               NOTIFY screenshotPreviewSourceChanged)
+    Q_PROPERTY(bool screenshotPreviewActive READ screenshotPreviewActive
+               NOTIFY screenshotPreviewActiveChanged)
+
     // --- Listening waveform bar amplitudes ---
     // QVariantList of `listeningBarCount` qreals in [0, 1]. Updated at ~30 Hz
     // while voiceState == Listening, frozen otherwise. Drives the
@@ -73,13 +81,28 @@ public:
     };
     Q_ENUM(InteractionMode)
 
+    // Which input mode currently owns the listening state. Both input modes
+    // drive the same Listening voiceState, so this is the single source of
+    // truth that keeps them mutually exclusive: a session can only be ended
+    // by the key that started it, and the other mode's key is ignored while a
+    // session is open.
+    enum InputSession {
+        NoInputSession,
+        VoiceListening,
+        ScreenshotListening,
+    };
+    Q_ENUM(InputSession)
+
     explicit CompanionState(QObject* parent = nullptr);
 
     VoiceState voiceState() const { return voiceStateValue; }
     OverlayMode overlayMode() const { return overlayModeValue; }
     InteractionMode interactionMode() const { return interactionModeValue; }
+    InputSession inputSession() const { return inputSessionValue; }
     QPointF cursorScreenPosition() const { return cursorScreenPositionValue; }
     QPointF taskMenuAnchorPosition() const { return taskMenuAnchorPositionValue; }
+    QString screenshotPreviewSource() const { return screenshotPreviewSourceValue; }
+    bool screenshotPreviewActive() const { return screenshotPreviewActiveValue; }
     QColor primaryFlashColor() const { return primaryFlashColorValue; }
     bool primaryFlashActive() const { return primaryFlashActiveValue; }
 
@@ -108,6 +131,15 @@ public slots:
                                          const QString& program,
                                          const QStringList& arguments);
 
+    // Screenshot input mode is screenshot + voice context: the controller
+    // grabs the image, then drives this two-step listen cycle (mirroring the
+    // push-to-talk voice path, which is audio-only).
+    //   begin  -> remember the screenshot, flash + enter Listening, flash the
+    //             thumbnail preview. Audio capture is stubbed (same as voice).
+    //   finish -> leave Listening and spawn the task for the remembered image.
+    void beginScreenshotListening(const QString& screenshotFilePath);
+    void finishScreenshotListeningAndSpawnTask();
+
 signals:
     void voiceStateChanged();
     void overlayModeChanged();
@@ -116,6 +148,8 @@ signals:
     void taskMenuAnchorPositionChanged();
     void primaryFlashColorChanged();
     void primaryFlashActiveChanged();
+    void screenshotPreviewSourceChanged();
+    void screenshotPreviewActiveChanged();
     void listeningAmplitudesChanged();
 
 private:
@@ -123,6 +157,7 @@ private:
     VoiceState voiceStateValue = Idle;
     OverlayMode overlayModeValue = FollowingCursor;
     InteractionMode interactionModeValue = Passive;
+    InputSession inputSessionValue = NoInputSession;
     QPointF cursorScreenPositionValue;
     QPointF taskMenuAnchorPositionValue;
 
@@ -136,6 +171,16 @@ private:
     bool primaryFlashActiveValue = false;
     QTimer primaryFlashReleaseTimer;
     QColor pendingTaskColorValue;
+
+    // --- Screenshot input mode ---
+    QString pendingScreenshotPathValue;  // image grabbed on press, spawned on release
+    QString screenshotPreviewSourceValue;
+    bool screenshotPreviewActiveValue = false;
+    QTimer screenshotPreviewHideTimer;
+    void showScreenshotPreview(const QString& screenshotFilePath);
+    // Spawns a task for `screenshotFilePath`, reusing pendingTaskColorValue.
+    // The PNG is deleted when the task reaches a terminal status.
+    void spawnScreenshotTask(const QString& screenshotFilePath);
 
     // --- Listening waveform amplitudes ---
     QVariantList listeningAmplitudesValue;

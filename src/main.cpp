@@ -3,6 +3,7 @@
 #include "global_hotkey_manager.h"
 #include "modifier_key_monitor.h"
 #include "overlay_window.h"
+#include "screenshot_capture_controller.h"
 #include "task_item.h"
 #include "task_list_model.h"
 #include "tray_icon_manager.h"
@@ -74,7 +75,9 @@ int main(int argc, char** argv) {
     ModifierKeyMonitor modifierKeyMonitor(&companionState);
     modifierKeyMonitor.start();
 
-    GlobalHotkeyManager globalHotkeyManager(&companionState);
+    ScreenshotCaptureController screenshotCaptureController(&companionState, &overlayWindows);
+
+    GlobalHotkeyManager globalHotkeyManager(&companionState, &screenshotCaptureController);
 
     TrayIconManager trayIconManager(&companionState);
     trayIconManager.show();
